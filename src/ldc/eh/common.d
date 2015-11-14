@@ -634,20 +634,38 @@ extern(C) auto eh_personality_common(NativeContext)(ref NativeContext nativeCont
 
         if (!nativeContext.skipCatchComparison())
         {
-            ClassInfo catchClassInfo = nativeContext.getCatchClassInfo(
-                classinfo_table - ti_offset * ci_size, classinfo_table_encoding);
-            ClassInfo exceptionClassInfo = isSearchPhase ?
-                searchPhaseClassInfo : nativeContext.getThrownObject().classinfo;
+            bool catched = false;
 
-            debug(EH_personality)
+            if (nativeContext.foreign) // CALYPSO
             {
-                printf("  - Comparing catch %s to exception %s\n",
-                    catchClassInfo.name.ptr, exceptionClassInfo.name.ptr);
+                if (nativeContext.foreign.doCatch(classinfo_table - ti_offset * ci_size, classinfo_table_encoding))
+                    catched = true;
+
+                // search phase needs to be handled differently?
             }
-            if (_d_isbaseof(exceptionClassInfo, catchClassInfo))
+            else
             {
+                ClassInfo catchClassInfo = nativeContext.getCatchClassInfo(
+                    classinfo_table - ti_offset * ci_size, classinfo_table_encoding);
+
+                if (catchClassInfo) // CALYPSO getCatchClassInfo() returning null means that the catch is foreign
+                {
+                    ClassInfo exceptionClassInfo = isSearchPhase ?
+                        searchPhaseClassInfo : nativeContext.getThrownObject().classinfo;
+
+                    debug(EH_personality)
+                    {
+                        printf("  - Comparing catch %s to exception %s\n",
+                            catchClassInfo.name.ptr, exceptionClassInfo.name.ptr);
+                    }
+
+                    if (_d_isbaseof(exceptionClassInfo, catchClassInfo))
+                        catched = true;
+                }
+            }
+
+            if (catched)
                 return nativeContext.installCatchContext(ti_offset, landingPadAddr);
-            }
         }
 
         debug(EH_personality) printf("  - Type mismatch, next action offset: %tx\n", next_action_offset);

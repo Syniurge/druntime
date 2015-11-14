@@ -3231,3 +3231,9 @@ unittest
     S[] arr;
     auto a = arr.dup;
 }
+
+// CALYPSO
+class __cpp_type_info_ptr
+{
+    void *p;
+}

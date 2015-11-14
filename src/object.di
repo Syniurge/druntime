@@ -851,3 +851,9 @@ private void _doPostblit(T)(T[] arr)
             postblit(elem);
     }
 }
+
+// CALYPSO
+class __cpp_type_info_ptr
+{
+    void *p;
+}
