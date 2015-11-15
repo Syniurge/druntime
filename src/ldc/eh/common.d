@@ -640,8 +640,6 @@ extern(C) auto eh_personality_common(NativeContext)(ref NativeContext nativeCont
             {
                 if (nativeContext.foreign.doCatch(classinfo_table - ti_offset * ci_size, classinfo_table_encoding))
                     catched = true;
-
-                // search phase needs to be handled differently?
             }
             else
             {

@@ -22,7 +22,7 @@ class CppHandler : ForeignHandler
     this(_cpp__Unwind_Exception *e, _Unwind_Context_Ptr context)
     {
         this._cpp_exception = __get_exception_header_from_ue(e);
-        this.context = _cpp_exception;
+        this.context = context;
     }
 
     void *getException()
@@ -41,11 +41,19 @@ class CppHandler : ForeignHandler
 
     bool doCatch(void* address, ubyte encoding)
     {
-        void *__thr_obj = _cpp_exception.adjustedPtr; // gets adjusted by type_info::__do_catch to the base type if needed
+        void *__thr_obj = __get_object_from_ue(&_cpp_exception.unwindHeader);
+
+        // Pointer types need to adjust the actual pointer, not the pointer to pointer that is the exception object.
+        // This also has the effect of passing pointer types "by value" through the __cxa_begin_catch return value.
+        if (_cpp_exception.exceptionType.__is_pointer_p())
+            __thr_obj = *cast(void **) __thr_obj;
 
         auto catchTypeInfo = getCatchTypeInfo(address, encoding);
-        if (catchTypeInfo && catchTypeInfo.__do_catch(_cpp_exception.exceptionType, & __thr_obj, 0))
+        if (catchTypeInfo && catchTypeInfo.__do_catch(_cpp_exception.exceptionType, & __thr_obj, 1))
+        {
+            _cpp_exception.adjustedPtr = __thr_obj; // NOTE: __cxa_begin_catch returns adjustedPtr, which in C++ EH is set by __gxx_personality_v0 if the search phase is successful
             return true;
+        }
 
         return false;
     }
