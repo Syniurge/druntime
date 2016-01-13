@@ -852,8 +852,14 @@ private void _doPostblit(T)(T[] arr)
     }
 }
 
-// CALYPSO
+// CALYPSO TODO: move to a Calypso specific module implictly imported if import (C++) is used
 class __cpp_type_info_ptr
 {
     void *p;
+}
+
+struct __cpp_member_funcptr
+{
+    ptrdiff_t ptr;
+    ptrdiff_t adj;
 }

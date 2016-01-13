@@ -3237,3 +3237,9 @@ class __cpp_type_info_ptr
 {
     void *p;
 }
+
+struct __cpp_member_funcptr
+{
+    ptrdiff_t ptr;
+    ptrdiff_t adj;
+}
