@@ -3385,3 +3385,16 @@ unittest
     S[] arr;
     auto a = arr.dup;
 }
+
+// CALYPSO
+class __cpp_type_info_ptr
+{
+    void *p;
+}
+
+struct __cpp_member_funcptr(T, Cls)
+    if (is(T == function))
+{
+    ptrdiff_t ptr;
+    ptrdiff_t adj;
+}

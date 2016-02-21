@@ -34,8 +34,6 @@ version (ARM)
         version = ARM_EABI_UNWINDER;
 }
 
-private:
-
 // C headers
 extern(C)
 {
@@ -122,6 +120,7 @@ extern(C)
     ptrdiff_t _Unwind_GetDataRelBase(_Unwind_Context_Ptr context);
 }
 
+private:
 
 // Exception struct used by the runtime.
 // _d_throw allocates a new instance and passes the address of its
@@ -210,6 +209,8 @@ struct NativeContext
     _d_exception* exception_struct;
     _Unwind_Context_Ptr context;
 
+    ForeignHandler foreign;
+
     ubyte* getLanguageSpecificData() { return cast(ubyte*)_Unwind_GetLanguageSpecificData(context); }
     ptrdiff_t getIP()                { return _Unwind_GetIP(context); }
     ptrdiff_t getRegionStart()       { return _Unwind_GetRegionStart(context); }
@@ -234,7 +235,7 @@ struct NativeContext
     {
         size_t catchClassInfoAddr;
         get_encoded_value(cast(ubyte*)address, catchClassInfoAddr, encoding, context);
-        return cast(ClassInfo)cast(void*)catchClassInfoAddr;
+        return cast(ClassInfo)cast(Object)cast(void*)catchClassInfoAddr; // CALYPSO
     }
 
     _Unwind_Reason_Code continueUnwind()
@@ -262,8 +263,11 @@ struct NativeContext
         if (!(actions & _Unwind_Action.CLEANUP_PHASE))
             fatalerror("Unknown phase");
 
-        auto cleanupBlock = pushCleanupBlockRecord(getCfaAddress(), getThrownObject());
-        cleanupBlock.exceptionStruct = exception_struct;
+        if (foreign is null) // CALYPSO HACK FIXME
+        {
+            auto cleanupBlock = pushCleanupBlockRecord(getCfaAddress(), getThrownObject());
+            cleanupBlock.exceptionStruct = exception_struct;
+        }
 
         debug(EH_personality)
         {
@@ -272,7 +276,7 @@ struct NativeContext
         }
 
         debug(EH_personality_verbose) printf("  - Setting switch value to: %p\n", ti_offset);
-        _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)exception_struct);
+        _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)(foreign ? foreign.getException() : exception_struct)); // CALYPSO
         _Unwind_SetGR(context, eh_selector_regno, ti_offset);
 
         debug(EH_personality_verbose) printf("  - Setting landing pad to: %p\n", landingPadAddr);
@@ -436,13 +440,24 @@ else // !ARM_EABI_UNWINDER
         if (ver != 1)
             return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
 
-        // check exceptionClass
-        //TODO: Treat foreign exceptions with more respect
-        if ((cast(char*)&exception_class)[0..8] != _d_exception_class)
-            return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
+        _d_exception* exception_struct;
+        ForeignHandler foreignHandler; // CALYPSO
 
-        _d_exception* exception_struct = cast(_d_exception*)(cast(ubyte*)exception_info - _d_exception.unwind_info.offsetof);
-        auto nativeContext = NativeContext(actions, exception_struct, context);
+        // check exceptionClass
+        if ((cast(char*)&exception_class)[0..8] != _d_exception_class)
+        {
+            foreach (ref factory; foreignHandlerFactories)
+                if (factory.doHandleExceptionClass(exception_class))
+                    foreignHandler = factory.create(context, exception_info);
+
+            if (foreignHandler is null)
+                return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
+        }
+
+        if (foreignHandler is null)
+            exception_struct = cast(_d_exception*)(cast(ubyte*)exception_info - _d_exception.unwind_info.offsetof);
+
+        auto nativeContext = NativeContext(actions, exception_struct, context, foreignHandler);
         return eh_personality_common(nativeContext);
     }
 }
@@ -561,3 +576,20 @@ Object _d_eh_enter_catch(void* ptr)
 }
 
 } // !CRuntime_Microsoft
+
+public:
+
+ // CALYPSO
+interface ForeignHandler
+{
+    void *getException();
+    bool doCatch(void* address, ubyte encoding);
+}
+
+interface ForeignHandlerFactory
+{
+    bool doHandleExceptionClass(ulong exception_class) shared;
+    ForeignHandler create(_Unwind_Context_Ptr context, _Unwind_Exception* exception_info) shared;
+}
+
+shared ForeignHandlerFactory[] foreignHandlerFactories;
