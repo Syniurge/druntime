@@ -654,6 +654,3 @@ interface ForeignHandlerFactory
 }
 
 shared ForeignHandlerFactory[] foreignHandlerFactories;
-
-// HACK, FIXME: find more elegant way to get static this() called
-import ldc.eh.cpp.gnu;
