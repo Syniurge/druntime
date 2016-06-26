@@ -34,6 +34,21 @@ version (ARM)
         version = ARM_EABI_UNWINDER;
 }
 
+ // CALYPSO
+interface ForeignHandler
+{
+    void *getException();
+    bool doCatch(void* address, ubyte encoding);
+}
+
+interface ForeignHandlerFactory
+{
+    bool doHandleExceptionClass(ulong exception_class) shared;
+    ForeignHandler create(_Unwind_Context_Ptr context, _Unwind_Exception* exception_info) shared;
+}
+
+shared ForeignHandlerFactory[] foreignHandlerFactories;
+
 // C headers
 extern(C)
 {
@@ -637,20 +652,3 @@ Object _d_eh_enter_catch(void* ptr)
 }
 
 } // !CRuntime_Microsoft
-
-public:
-
- // CALYPSO
-interface ForeignHandler
-{
-    void *getException();
-    bool doCatch(void* address, ubyte encoding);
-}
-
-interface ForeignHandlerFactory
-{
-    bool doHandleExceptionClass(ulong exception_class) shared;
-    ForeignHandler create(_Unwind_Context_Ptr context, _Unwind_Exception* exception_info) shared;
-}
-
-shared ForeignHandlerFactory[] foreignHandlerFactories;
