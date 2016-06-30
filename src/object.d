@@ -992,7 +992,7 @@ class TypeInfo_Class : TypeInfo
 
     override @property size_t tsize() nothrow pure const
     {
-        return Object.sizeof;
+        return (m_flags & ClassFlags.byVal) ? initializer().length : Object.sizeof; // CALYPSO HACK: a derived TypeInfo_ClassValue would be faster but might break some "is( == )"
     }
 
     override const(void)[] initializer() nothrow pure const @safe
@@ -1030,6 +1030,7 @@ class TypeInfo_Class : TypeInfo
         isAbstract = 0x40,
         isCPPclass = 0x80,
         hasDtor = 0x100,
+        byVal = 0x200,  // CALYPSO
     }
     ClassFlags m_flags;
     void*       deallocator;
