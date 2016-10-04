@@ -22,6 +22,13 @@ version (ARM)
         version = ARM_EABI_UNWINDER;
 }
 
+ // CALYPSO
+interface ForeignHandler
+{
+    void *getException();
+    bool doCatch(void* address, ubyte encoding);
+}
+
 // D runtime function
 extern(C) int _d_isbaseof(ClassInfo oc, ClassInfo c);
 
@@ -705,12 +712,12 @@ extern(C) auto eh_personality_common(NativeContext)(ref NativeContext nativeCont
 
         if (!nativeContext.skipCatchComparison())
         {
-            bool catched = false;
+            bool caught = false;
 
             if (nativeContext.foreign) // CALYPSO
             {
                 if (nativeContext.foreign.doCatch(classinfo_table - ti_offset * ci_size, classinfo_table_encoding))
-                    catched = true;
+                    caught = true;
             }
             else
             {
@@ -729,11 +736,11 @@ extern(C) auto eh_personality_common(NativeContext)(ref NativeContext nativeCont
                     }
 
                     if (_d_isbaseof(exceptionClassInfo, catchClassInfo))
-                        catched = true;
+                        caught = true;
                 }
             }
 
-            if (catched)
+            if (caught)
                 return nativeContext.installCatchContext(ti_offset, landingPadAddr);
         }
 

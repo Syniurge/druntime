@@ -35,12 +35,6 @@ version (ARM)
 }
 
  // CALYPSO
-interface ForeignHandler
-{
-    void *getException();
-    bool doCatch(void* address, ubyte encoding);
-}
-
 interface ForeignHandlerFactory
 {
     bool doHandleExceptionClass(ulong exception_class) shared;

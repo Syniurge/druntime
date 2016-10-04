@@ -230,6 +230,8 @@ struct NativeContext
     CONTEXT* contextRecord;
     DISPATCHER_CONTEXT* dc;
 
+    ForeignHandler foreign; // CALYPSO
+
     ubyte* getLanguageSpecificData() { return cast(ubyte*)dc.HandlerData; }
     ptrdiff_t getIP()                { return cast(ptrdiff_t)dc.ControlPc; }
     ptrdiff_t getRegionStart()       { return cast(ptrdiff_t)dc.ImageBase + dc.FunctionEntry.BeginAddress; }
@@ -303,6 +305,15 @@ struct NativeContext
     {
     }
 }
+
+// CALYPSO
+// interface ForeignHandlerFactory
+// {
+    // bool doHandleExceptionClass(ulong exception_class) shared;
+    // ForeignHandler create(_Unwind_Context_Ptr context, _Unwind_Exception* exception_info) shared;
+// }
+
+// shared ForeignHandlerFactory[] foreignHandlerFactories;
 
 // The personality routine gets called by the unwind handler and is responsible for
 // reading the EH tables and deciding what to do.
