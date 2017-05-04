@@ -20,6 +20,13 @@ import rt.unwind;
 import core.stdc.stdio;
 import core.stdc.stdlib;
 
+// CALYPSO
+interface ForeignHandler
+{
+    bool doCatch(void* entry, _Unwind_Exception* exceptionObject) shared;
+}
+shared ForeignHandler[] foreignHandlers;
+
 version (LDC)
 {
     version (ARM)
@@ -440,7 +447,7 @@ version (ARM_EABI_UNWINDER)
         UNWIND_POINTER_REG = 12,
         UNWIND_STACK_REG = 13
     }
-    
+
     extern (C) _Unwind_Reason_Code _d_eh_personality(_Unwind_State state,
                    _Unwind_Exception* exceptionObject, _Unwind_Context* context)
     {
@@ -1219,6 +1226,14 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
         ClassInfo ci = cast(ClassInfo)cast(void*)(entry);
         if (ci.classinfo is __cpp_type_info_ptr.classinfo)
         {
+            // CALYPSO still has a few tricks up its sleeve : catching non-class C++ exceptions, libc++ support, and a different/fairly handsome implementation.
+            // MSVC C++ exception support and libunwind full support (esp. rethrowing) need to be explored first, before deciding how to merge it with DMD/LDC's implementation.
+            // For the time being there is peaceful co-existence.
+
+            foreach (ref foreignHandler; foreignHandlers) // CALYPSO
+                if (foreignHandler.doCatch(cast(void*) ci, exceptionObject))
+                    return cast(int)TypeFilter;
+
             if (exceptionClass == cppExceptionClass || exceptionClass == cppExceptionClass1)
             {
                 // sti is catch clause type_info
