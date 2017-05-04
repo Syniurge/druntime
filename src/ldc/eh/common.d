@@ -39,6 +39,13 @@ extern(C) void fatalerror(in char* format, ...)
 version(CRuntime_Microsoft) {} else version = notMSVC;
 version(notMSVC):
 
+// CALYPSO
+interface ForeignHandler
+{
+    void *getException();
+    bool doCatch(void* address, ubyte encoding);
+}
+
 // ------------------------
 //    Reading DWARF data
 // ------------------------
@@ -708,6 +715,15 @@ extern(C) auto eh_personality_common(NativeContext)(ref NativeContext nativeCont
 
         if (!nativeContext.skipCatchComparison())
         {
+            bool caught = false;
+
+            if (nativeContext.foreign) // CALYPSO
+            {
+                if (nativeContext.foreign.doCatch(classinfo_table - ti_offset * ci_size, classinfo_table_encoding))
+                    caught = true;
+            }
+            else
+            {
             ClassInfo catchClassInfo = nativeContext.getCatchClassInfo(
                 classinfo_table - ti_offset * ci_size, classinfo_table_encoding);
             ClassInfo exceptionClassInfo = isSearchPhase ?
@@ -719,6 +735,10 @@ extern(C) auto eh_personality_common(NativeContext)(ref NativeContext nativeCont
                     catchClassInfo.name.ptr, exceptionClassInfo.name.ptr);
             }
             if (_d_isbaseof(exceptionClassInfo, catchClassInfo))
+                    caught = true;
+            }
+
+            if (caught)
             {
                 return nativeContext.installCatchContext(ti_offset, landingPadAddr);
             }
