@@ -265,7 +265,7 @@ any GC memory.
 If `initialize` is supplied `false`, the object is considered invalid after
 destruction, and should not be referenced.
 */
-void destroy(bool initialize = true, T)(ref T obj) if (is(T == struct))
+void destroy(bool initialize = true, T)(ref T obj) if (__traits(isAggregateValue, T)) // CALYPSO
 {
     _destructRecurse(obj);
 
@@ -299,7 +299,7 @@ void destroy(bool initialize = true, T)(ref T obj) if (is(T == struct))
 }
 
 private void _destructRecurse(S)(ref S s)
-    if (is(S == struct))
+    if (__traits(isAggregateValue, S)) // CALYPSO
 {
     static if (__traits(hasMember, S, "__xdtor") &&
             // Bugzilla 14746: Check that it's the exact member of S.
@@ -353,7 +353,7 @@ nothrow @safe @nogc unittest
 }
 
 /// ditto
-void destroy(bool initialize = true, T)(T obj) if (is(T == class))
+void destroy(bool initialize = true, T)(T obj) if (is(T == class) && !__traits(isAggregateValue, T)) // CALYPSO
 {
     static if (__traits(getLinkage, T) == "C++")
     {
