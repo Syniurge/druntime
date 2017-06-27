@@ -527,7 +527,7 @@ _destroy an object, calling its destructor or finalizer so it no longer
 references any other objects. It does $(I not) initiate a GC cycle or free
 any GC memory.
 */
-void destroy(T)(ref T obj) if (is(T == struct))
+void destroy(T)(ref T obj) if (__traits(isAggregateValue, T)) // CALYPSO
 {
     // We need to re-initialize `obj`.  Previously, the code
     // `auto init = cast(ubyte[])typeid(T).initializer()` was used, but
@@ -547,7 +547,7 @@ void destroy(T)(ref T obj) if (is(T == struct))
 }
 
 private void _destructRecurse(S)(ref S s)
-    if (is(S == struct))
+    if (__traits(isAggregateValue, S)) // CALYPSO
 {
     static if (__traits(hasMember, S, "__xdtor") &&
             // Bugzilla 14746: Check that it's the exact member of S.
@@ -596,7 +596,7 @@ nothrow @safe @nogc unittest
 
 
     /// ditto
-    void destroy(T)(T obj) if (is(T == class))
+    void destroy(T)(T obj) if (is(T == class) && !__traits(isAggregateValue, T)) // CALYPSO
     {
         static if(__traits(getLinkage, T) == "C++")
         {
