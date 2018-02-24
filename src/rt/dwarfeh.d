@@ -455,7 +455,7 @@ version (ARM_EABI_UNWINDER)
         UNWIND_POINTER_REG = 12,
         UNWIND_STACK_REG = 13
     }
-    
+
     extern (C) _Unwind_Reason_Code _d_eh_personality(_Unwind_State state,
                    _Unwind_Exception* exceptionObject, _Unwind_Context* context)
     {
@@ -1236,21 +1236,20 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
             entry = *cast(_Unwind_Ptr*)entry;
 
         ClassInfo ci = cast(ClassInfo)cast(void*)(entry);
-        version (LDC)
+
+        // CALYPSO still has a few tricks up its sleeve : catching non-class C++ exceptions, libc++ support, and a different (and let's not be modest, fairly handsome) implementation.
+        // MSVC C++ exception support and libunwind full support (esp. rethrowing) need to be explored first, before deciding how to merge it with DMD/LDC's implementation.
+        // For the time being there is peaceful co-existence.
+        foreach (ref foreignHandler; foreignHandlers) // CALYPSO
+            if (foreignHandler.doCatch(cast(void*) ci, exceptionObject))
+                return cast(int)TypeFilter;
+
+        if (ci.classinfo is __cpp_type_info_ptr.classinfo)
         {
-            // CALYPSO still has a few tricks up its sleeve : catching non-class C++ exceptions, libc++ support, and a different (and let's not be modest, fairly handsome) implementation.
-            // MSVC C++ exception support and libunwind full support (esp. rethrowing) need to be explored first, before deciding how to merge it with DMD/LDC's implementation.
-            // For the time being there is peaceful co-existence.
-
-            foreach (ref foreignHandler; foreignHandlers) // CALYPSO
-                if (foreignHandler.doCatch(cast(void*) ci, exceptionObject))
-                    return cast(int)TypeFilter;
-
-            // LDC: for C++ exceptions, `ci` is a pointer to the C++ std::type_info
             if (exceptionClass == cppExceptionClass || exceptionClass == cppExceptionClass1)
             {
                 // sti is catch clause type_info
-                auto sti = cast(CppTypeInfo) cast(void*) ci;
+                auto sti = cast(CppTypeInfo)((cast(__cpp_type_info_ptr)cast(void*)ci).ptr);
                 auto p = getCppPtrToThrownObject(exceptionObject, sti);
                 if (p) // if found
                 {
@@ -1259,29 +1258,9 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
                     return cast(int)TypeFilter;
                 }
             }
-            else if (exceptionClass == dmdExceptionClass && _d_isbaseof(thrownType, ci))
-                return cast(int)TypeFilter; // found it
         }
-        else
-        {
-            if (ci.classinfo is __cpp_type_info_ptr.classinfo)
-            {
-                if (exceptionClass == cppExceptionClass || exceptionClass == cppExceptionClass1)
-                {
-                    // sti is catch clause type_info
-                    auto sti = cast(CppTypeInfo)((cast(__cpp_type_info_ptr)cast(void*)ci).ptr);
-                    auto p = getCppPtrToThrownObject(exceptionObject, sti);
-                    if (p) // if found
-                    {
-                        auto eh = CppExceptionHeader.toExceptionHeader(exceptionObject);
-                        eh.thrownPtr = p;                   // for __cxa_begin_catch()
-                        return cast(int)TypeFilter;
-                    }
-                }
-            }
-            else if (exceptionClass == dmdExceptionClass && _d_isbaseof(thrownType, ci))
-                return cast(int)TypeFilter; // found it
-        }
+        else if (exceptionClass == dmdExceptionClass && _d_isbaseof(thrownType, ci))
+            return cast(int)TypeFilter; // found it
 
         if (!NextRecordPtr)
             return 0;                   // catch not found
